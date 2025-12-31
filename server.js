@@ -9,7 +9,14 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://ecohub-8c7zal6ra-aiswaryas-projects-5149c194.vercel.app',
+    'https://ecohub.vercel.app', // If you add custom domain
+    'http://localhost:3000' // For local development
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 // Initialize Gemini AI
