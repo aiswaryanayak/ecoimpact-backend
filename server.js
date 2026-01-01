@@ -13,10 +13,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
     'https://ecohub-8c7zal6ra-aiswaryas-projects-5149c194.vercel.app',
-    'https://ecohub-h8e8v0j9r-aiswaryas-projects-5149c194.vercel.app', // Latest deployment
-    'https://ecohub-nine.vercel.app', // Production URL
-    'https://ecohub.vercel.app', // Custom domain
-    'http://localhost:3000' // Local development
+    'https://ecohub-h8e8v0j9r-aiswaryas-projects-5149c194.vercel.app',
+    'https://ecohub-qokgw3q1a-aiswaryas-projects-5149c194.vercel.app', // Latest
+    'https://ecohub-nine.vercel.app',
+    'https://ecohub.vercel.app',
+    'http://localhost:3000'
   ],
   credentials: true
 }));
