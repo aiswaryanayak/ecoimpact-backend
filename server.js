@@ -13,9 +13,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({
   origin: [
     'https://ecohub-8c7zal6ra-aiswaryas-projects-5149c194.vercel.app',
-    'https://ecohub-nine.vercel.app', // Current production URL
-    'https://ecohub.vercel.app', // If you add custom domain
-    'http://localhost:3000' // For local development
+    'https://ecohub-h8e8v0j9r-aiswaryas-projects-5149c194.vercel.app', // Latest deployment
+    'https://ecohub-nine.vercel.app', // Production URL
+    'https://ecohub.vercel.app', // Custom domain
+    'http://localhost:3000' // Local development
   ],
   credentials: true
 }));
