@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 
 dotenv.config();
 
@@ -182,21 +183,113 @@ app.post('/api/simulate-impact', async (req, res) => {
   }
 });
 
+// Helper function: Lookup product by barcode using Open Food Facts API
+async function lookupBarcode(barcode) {
+  try {
+    const response = await axios.get(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`, {
+      timeout: 5000
+    });
+    
+    if (response.data.status === 1) {
+      const product = response.data.product;
+      return {
+        found: true,
+        source: 'Open Food Facts',
+        name: product.product_name || 'Unknown Product',
+        brand: product.brands || 'Unknown Brand',
+        categories: product.categories || 'N/A',
+        ingredients: product.ingredients_text || 'Not available',
+        packaging: product.packaging || 'Not specified',
+        labels: product.labels || '',
+        nutriscore: product.nutriscore_grade || 'N/A',
+        ecoscore: product.ecoscore_grade || 'N/A',
+        image_url: product.image_url || null
+      };
+    }
+    return { found: false };
+  } catch (error) {
+    console.log('Open Food Facts lookup failed:', error.message);
+    return { found: false };
+  }
+}
+
+// Helper function: Fallback to UPC Item DB (free tier)
+async function lookupUPCItemDB(barcode) {
+  try {
+    // Using free tier - limited to 100 requests/day
+    const response = await axios.get(`https://api.upcitemdb.com/prod/trial/lookup?upc=${barcode}`, {
+      timeout: 5000
+    });
+    
+    if (response.data.items && response.data.items.length > 0) {
+      const item = response.data.items[0];
+      return {
+        found: true,
+        source: 'UPC Item DB',
+        name: item.title || 'Unknown Product',
+        brand: item.brand || 'Unknown Brand',
+        categories: item.category || 'N/A',
+        description: item.description || 'Not available',
+        image_url: item.images?.[0] || null
+      };
+    }
+    return { found: false };
+  } catch (error) {
+    console.log('UPC Item DB lookup failed:', error.message);
+    return { found: false };
+  }
+}
+
 // Route: EcoScan - AI Product Checker with Image Analysis
 app.post('/api/ecoscan', async (req, res) => {
   try {
-    const { productName, productDescription, image } = req.body;
+    const { productName, productDescription, image, barcode } = req.body;
+
+    let productData = null;
+    let productInfo = '';
+
+    // If barcode provided, try API lookup first
+    if (barcode) {
+      console.log(`Looking up barcode: ${barcode}`);
+      
+      // Try Open Food Facts first (best for food/beverages)
+      productData = await lookupBarcode(barcode);
+      
+      // If not found, try UPC Item DB as fallback
+      if (!productData.found) {
+        productData = await lookupUPCItemDB(barcode);
+      }
+
+      // If product found in database, use that data
+      if (productData.found) {
+        console.log(`Product found in ${productData.source}`);
+        productInfo = `
+VERIFIED PRODUCT DATA from ${productData.source}:
+Product Name: ${productData.name}
+Brand: ${productData.brand}
+Categories: ${productData.categories}
+${productData.ingredients ? `Ingredients: ${productData.ingredients}` : ''}
+${productData.packaging ? `Packaging: ${productData.packaging}` : ''}
+${productData.labels ? `Labels: ${productData.labels}` : ''}
+${productData.ecoscore ? `Eco-Score: ${productData.ecoscore}` : ''}
+${productData.description ? `Description: ${productData.description}` : ''}
+`;
+      } else {
+        console.log('Product not found in databases, using AI analysis');
+        productInfo = `Barcode: ${barcode} (not found in product databases, analyzing from description/image)`;
+      }
+    }
 
     let prompt = `You are an environmental sustainability expert providing AI-based reasoning about everyday products with focus on waste management.
 
-Important: This is general sustainability assessment, not brand verification.
+${productInfo}
 
 Analyze this product for eco-friendliness and end-of-life disposal:
-Product: ${productName || 'Unknown Product (analyzing from image)'}
-${productDescription ? `Description: ${productDescription}` : ''}
+Product: ${productName || productData?.name || 'Unknown Product (analyzing from image)'}
+${productDescription ? `Additional Description: ${productDescription}` : ''}
 
 Provide:
-1. Eco-Friendliness Score: X/10 (based on general product category)
+1. Eco-Friendliness Score: X/10 (based on ${productData?.found ? 'verified product data' : 'general product category'})
 2. Carbon Footprint: Estimate in kg CO2 (e.g., "~5kg CO2 per unit" or "High/Medium/Low")
 3. Materials: List the main materials (e.g., "PET plastic #1, aluminum cap")
 4. Recycling: Detailed instructions (e.g., "Remove cap, rinse, place in blue recycling bin. Code #1 accepted everywhere.")
@@ -229,7 +322,7 @@ Focus on helping everyday users properly dispose of products and reduce waste. B
         }
       ];
       
-      const visionPrompt = productName 
+      const visionPrompt = productName || productData?.found
         ? `${prompt}\n\nAlso analyze the product from this image to provide more accurate assessment.`
         : `Analyze the product in this image for eco-friendliness. ${prompt}`;
       
@@ -244,6 +337,12 @@ Focus on helping everyday users properly dispose of products and reduce waste. B
     res.json({
       success: true,
       analysis: text,
+      productData: productData?.found ? {
+        name: productData.name,
+        brand: productData.brand,
+        source: productData.source,
+        image_url: productData.image_url
+      } : null
     });
   } catch (error) {
     console.error('Error in EcoScan:', error);
