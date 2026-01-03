@@ -362,8 +362,8 @@ app.post('/api/ecobloom', async (req, res) => {
     const footprint = userContext?.footprint || {};
     const challenges = userContext?.challenges || [];
     
-    const completedChallenges = challenges.filter((c: any) => c.completed).length;
-    const activeChallenges = challenges.filter((c: any) => !c.completed && c.progress > 0).length;
+    const completedChallenges = challenges.filter((c) => c.completed).length;
+    const activeChallenges = challenges.filter((c) => !c.completed && c.progress > 0).length;
     const totalCO2 = footprint?.totalCO2 || 0;
     const ecoScore = stats?.ecoScore || 0;
     const level = stats?.level || 1;
