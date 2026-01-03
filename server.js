@@ -26,7 +26,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Carbon Emission Factors (kg CO2 per unit)
 const EMISSION_FACTORS = {
@@ -310,7 +310,7 @@ Focus on helping everyday users properly dispose of products and reduce waste. B
     let result;
     if (image) {
       // Use Gemini Vision API for image analysis
-      const visionModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const visionModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       
       // Extract base64 data (remove data:image/...;base64, prefix)
       const base64Data = image.split(',')[1] || image;
