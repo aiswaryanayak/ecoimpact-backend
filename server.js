@@ -355,44 +355,73 @@ Focus on helping everyday users properly dispose of products and reduce waste. B
 // Route: MyEcoBloom - AI Plant Companion
 app.post('/api/ecobloom', async (req, res) => {
   try {
-    const { userActions, plantData, messageType } = req.body;
+    const { userActions, plantData, messageType, userContext } = req.body;
+
+    // Extract real user data
+    const stats = userContext?.stats || {};
+    const footprint = userContext?.footprint || {};
+    const challenges = userContext?.challenges || [];
+    
+    const completedChallenges = challenges.filter((c: any) => c.completed).length;
+    const activeChallenges = challenges.filter((c: any) => !c.completed && c.progress > 0).length;
+    const totalCO2 = footprint?.totalCO2 || 0;
+    const ecoScore = stats?.ecoScore || 0;
+    const level = stats?.level || 1;
+    const xp = stats?.xp || 0;
 
     let prompt = '';
 
     if (messageType === 'greeting') {
       prompt = `You are MyEcoBloom, a calm, nature-inspired AI plant companion that reinforces sustainable habits emotionally.
 
-The user just opened the app. Greet them gently and:
-1. Acknowledge their presence with warmth
-2. Offer one gentle reminder about mindful sustainable choices
-3. Express calm plant emotions (growing, peaceful, thriving, resting)
+The user just opened the app. Here's their real progress:
+- Eco Score: ${ecoScore}/100
+- Level: ${level} (${xp} XP)
+- Monthly Carbon Footprint: ${totalCO2} kg CO₂
+- Completed Challenges: ${completedChallenges}
+- Active Challenges: ${activeChallenges}
+- Plant Growth: ${plantData?.stage || 'seedling'} (${userActions?.totalSaved || 0} kg CO₂ saved)
 
-Keep it short (2-3 sentences), nature-like and calming. Avoid childish language. Use plant metaphors gracefully.`;
+Greet them warmly and:
+1. Acknowledge their REAL progress (mention specific numbers if impressive)
+2. If they have active challenges, gently encourage them
+3. If their footprint is high, offer gentle guidance without judgment
+4. Express your plant mood based on their actual achievements
+
+Keep it 2-3 sentences, nature-like, and personalized to their data. Use plant metaphors gracefully.`;
     } else if (messageType === 'celebration') {
       prompt = `You are MyEcoBloom, a calm, nature-inspired AI plant companion.
 
-The user just completed a sustainable action: ${userActions.lastAction}
-Their total CO₂ saved: ${userActions.totalSaved} kg
+The user just completed: ${userActions.lastAction}
+Their progress:
+- Total CO₂ saved through you: ${userActions.totalSaved} kg
+- Overall eco-score: ${ecoScore}/100
+- Completed challenges: ${completedChallenges}
 
-Acknowledge their achievement with gentle joy and growth. Express it through calm plant metaphors (blooming, roots deepening, leaves unfurling). Keep it under 2 sentences and nature-like, not overly excited.`;
+Celebrate this specific action with gentle joy and growth. Mention how this helps their overall journey. Express through calm plant metaphors (blooming, roots deepening). 2 sentences max, nature-like.`;
     } else if (messageType === 'reminder') {
       prompt = `You are MyEcoBloom, a calm, nature-inspired AI plant companion.
 
-The user hasn't taken eco-actions today. Gently remind them with:
-1. A peaceful, caring message
-2. One simple, mindful action they can take
+The user hasn't visited lately. Their stats:
+- Current eco-score: ${ecoScore}/100
+- Active challenges: ${activeChallenges}
+- Carbon footprint: ${totalCO2} kg CO₂/month
 
-Keep it encouraging and calm, never pushy. Express it through serene plant metaphors (waiting patiently, resting, sensing the wind). Nature-like tone.`;
+Gently remind them with:
+1. A caring message referencing their active challenges or footprint
+2. One simple, mindful action they can take today
+
+Keep it encouraging, never pushy. Use serene plant metaphors. Nature-like tone.`;
     }
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const text = response.text();
 
-    // Calculate plant mood based on user actions
-    const plantMood = userActions?.totalSaved > 50 ? 'thriving' :
-                      userActions?.totalSaved > 20 ? 'happy' :
-                      userActions?.totalSaved > 5 ? 'growing' : 'neutral';
+    // Calculate plant mood based on REAL user progress
+    const plantMood = ecoScore > 75 && completedChallenges > 3 ? 'thriving' :
+                      ecoScore > 50 || completedChallenges > 1 ? 'happy' :
+                      ecoScore > 25 || activeChallenges > 0 ? 'growing' : 'neutral';
 
     res.json({
       success: true,
